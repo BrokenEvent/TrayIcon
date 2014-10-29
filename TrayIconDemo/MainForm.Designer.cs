@@ -41,8 +41,11 @@
       this.lblIconHint = new System.Windows.Forms.Label();
       this.lblIconHintHint = new System.Windows.Forms.Label();
       this.cbLargeIcons = new System.Windows.Forms.CheckBox();
-      this.myTrayIcon = new BrokenEvent.Shared.TrayIcon();
       this.lblHint = new System.Windows.Forms.Label();
+      this.lblCustomHintTest = new System.Windows.Forms.Label();
+      this.cbShowDefaultTips = new System.Windows.Forms.CheckBox();
+      this.myTrayIcon = new BrokenEvent.Shared.TrayIcon();
+      this.customHint = new BrokenEvent.Shared.CustomHint();
       this.contextMenuStrip.SuspendLayout();
       this.SuspendLayout();
       // 
@@ -77,7 +80,7 @@
       this.tbHintText.Name = "tbHintText";
       this.tbHintText.Size = new System.Drawing.Size(286, 21);
       this.tbHintText.TabIndex = 2;
-      this.tbHintText.Text = "BrokenEvent.TrayIconDemo";
+      this.tbHintText.Text = "Some test text";
       this.tbHintText.TextChanged += new System.EventHandler(this.tbHintText_TextChanged);
       // 
       // tbNotificationText
@@ -159,31 +162,69 @@
       this.cbLargeIcons.UseVisualStyleBackColor = true;
       this.cbLargeIcons.CheckedChanged += new System.EventHandler(this.cbLargeIcons_CheckedChanged);
       // 
-      // myTrayIcon
-      // 
-      this.myTrayIcon.ContextMenu = this.contextMenuStrip;
-      this.myTrayIcon.Enabled = true;
-      this.myTrayIcon.Guid = new System.Guid("3883dabe-3dfc-4aec-8d32-c851fb52725a");
-      this.myTrayIcon.HintText = "BrokenEvent.TrayIconDemo";
-      this.myTrayIcon.Icon = null;
-      this.myTrayIcon.OwnerForm = this;
-      this.myTrayIcon.TrimLongText = true;
-      // 
       // lblHint
       // 
       this.lblHint.AutoSize = true;
       this.lblHint.ForeColor = System.Drawing.Color.Navy;
-      this.lblHint.Location = new System.Drawing.Point(12, 152);
+      this.lblHint.Location = new System.Drawing.Point(12, 169);
       this.lblHint.Name = "lblHint";
       this.lblHint.Size = new System.Drawing.Size(175, 13);
       this.lblHint.TabIndex = 11;
       this.lblHint.Text = "Also check tray icon context menu.";
       // 
+      // lblCustomHintTest
+      // 
+      this.lblCustomHintTest.AutoSize = true;
+      this.lblCustomHintTest.ForeColor = System.Drawing.Color.Blue;
+      this.lblCustomHintTest.Location = new System.Drawing.Point(213, 169);
+      this.lblCustomHintTest.Name = "lblCustomHintTest";
+      this.lblCustomHintTest.Size = new System.Drawing.Size(186, 13);
+      this.lblCustomHintTest.TabIndex = 12;
+      this.lblCustomHintTest.Text = "Also try to hover this label by mouse.";
+      this.lblCustomHintTest.MouseEnter += new System.EventHandler(this.lblCustomHintTest_MouseEnter);
+      this.lblCustomHintTest.MouseLeave += new System.EventHandler(this.lblCustomHintTest_MouseLeave);
+      // 
+      // cbShowDefaultTips
+      // 
+      this.cbShowDefaultTips.AutoSize = true;
+      this.cbShowDefaultTips.Location = new System.Drawing.Point(15, 147);
+      this.cbShowDefaultTips.Name = "cbShowDefaultTips";
+      this.cbShowDefaultTips.Size = new System.Drawing.Size(177, 17);
+      this.cbShowDefaultTips.TabIndex = 13;
+      this.cbShowDefaultTips.Text = "Show default tips (WinXP-style)";
+      this.cbShowDefaultTips.UseVisualStyleBackColor = true;
+      this.cbShowDefaultTips.CheckedChanged += new System.EventHandler(this.cbShowDefaultTips_CheckedChanged);
+      // 
+      // myTrayIcon
+      // 
+      this.myTrayIcon.ContextMenu = this.contextMenuStrip;
+      this.myTrayIcon.Enabled = true;
+      this.myTrayIcon.Guid = new System.Guid("3883dabe-3dfc-4aec-8d32-c851fb52725a");
+      this.myTrayIcon.HintText = "Some test text";
+      this.myTrayIcon.Icon = null;
+      this.myTrayIcon.LongHintText = "BrokenEvent.TrayIconDemo";
+      this.myTrayIcon.OwnerForm = this;
+      this.myTrayIcon.ShowDefaultTips = false;
+      this.myTrayIcon.ShowOwnerUI = false;
+      this.myTrayIcon.TrimLongText = true;
+      this.myTrayIcon.TooltipMeasure += new System.EventHandler<BrokenEvent.Shared.HintMeasureEventArgs>(this.customHint_OnMeasure);
+      this.myTrayIcon.TooltipPaint += new System.EventHandler<BrokenEvent.Shared.HintPaintEventArgs>(this.myTrayIcon_TooltipPaint);
+      // 
+      // customHint
+      // 
+      this.customHint.InnerPadding = new System.Windows.Forms.Padding(4);
+      this.customHint.OwnerForn = this;
+      this.customHint.Text = "Here is a some tooltip with fully custom render";
+      this.customHint.OnMeasure += new System.EventHandler<BrokenEvent.Shared.HintMeasureEventArgs>(this.customHint_OnMeasure);
+      this.customHint.OnPaint += new System.EventHandler<BrokenEvent.Shared.HintPaintEventArgs>(this.customHint_OnPaint);
+      // 
       // MainForm
       // 
       this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
       this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-      this.ClientSize = new System.Drawing.Size(407, 174);
+      this.ClientSize = new System.Drawing.Size(407, 191);
+      this.Controls.Add(this.cbShowDefaultTips);
+      this.Controls.Add(this.lblCustomHintTest);
       this.Controls.Add(this.lblTrayHint);
       this.Controls.Add(this.lblHint);
       this.Controls.Add(this.lblIconHintHint);
@@ -223,6 +264,9 @@
     private System.Windows.Forms.Label lblIconHint;
     private System.Windows.Forms.CheckBox cbLargeIcons;
     private System.Windows.Forms.Label lblHint;
+    private System.Windows.Forms.Label lblCustomHintTest;
+    private Shared.CustomHint customHint;
+    private System.Windows.Forms.CheckBox cbShowDefaultTips;
   }
 }
 

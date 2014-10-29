@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using System.Windows.Forms.VisualStyles;
 
 namespace BrokenEvent.Shared
 {
@@ -211,6 +212,7 @@ namespace BrokenEvent.Shared
     #endregion
 
     private string hintText = string.Empty;
+    private string longHintText = string.Empty;
     private Icon icon;
     private Form ownerForm;
     private bool enabled;
@@ -223,6 +225,8 @@ namespace BrokenEvent.Shared
     private bool useLargeIcons = true;
     private Guid guid;
     private bool showDefaultTips = true;
+    private HintWindow hintWindow;
+    private bool showOwnerUI = false;
 
     private static readonly object EVENT_MOUSEDOWN = new object();
     private static readonly object EVENT_MOUSEMOVE = new object();
@@ -234,6 +238,8 @@ namespace BrokenEvent.Shared
     private static readonly object EVENT_BALLOONTIPCLOSED = new object();
     private static readonly object EVENT_TOOLTIPSHOWN = new object();
     private static readonly object EVENT_TOOLTIPCLOSED = new object();
+    private static readonly object EVENT_TOOLTIPMEASURE = new object();
+    private static readonly object EVENT_TOOLTIPPAINT = new object();
     private static readonly object EVENT_CONTEXTMENUSHOW = new object();
     private static int trayIconId = 0;
     private static int WM_TASKBARCREATED = RegisterWindowMessage("TaskbarCreated");
@@ -257,7 +263,7 @@ namespace BrokenEvent.Shared
         if (hintText.Length >= 128)
         {
           if (trimLongText)
-            value = value.Substring(0, 127);
+            value = value.Substring(0, 124) + "...";
           else
             throw new ArgumentOutOfRangeException("value", hintText.Length, "Hint text should be less than 128 chars long");
         }
@@ -265,6 +271,13 @@ namespace BrokenEvent.Shared
         if (enabled)
           UpdateIcon();
       }
+    }
+
+    [Description("Hint text to be shown in hint when running on Vista+")]
+    public string LongHintText
+    {
+      get { return longHintText; }
+      set { longHintText = value; }
     }
 
     [Description("Tray icon")]
@@ -286,8 +299,28 @@ namespace BrokenEvent.Shared
       set
       {
         ownerForm = value;
+        if (ownerForm != null && useVersion4 && !showOwnerUI)
+          hintWindow = new HintWindow(ownerForm.Handle, this);
         if (enabled)
           UpdateIcon();
+      }
+    }
+
+    [Description("Show custom UI instead of standart Hint")]
+    public bool ShowOwnerUI
+    {
+      get { return showOwnerUI; }
+      set
+      {
+        showOwnerUI = value;
+        if (value && hintWindow != null)
+        {
+          hintWindow.DestroyHandle();
+          hintWindow = null;
+        }
+
+        if (ownerForm != null && useVersion4 && !showOwnerUI)
+          hintWindow = new HintWindow(ownerForm.Handle, this);
       }
     }
 
@@ -340,7 +373,12 @@ namespace BrokenEvent.Shared
     public bool ShowDefaultTips
     {
       get { return showDefaultTips; }
-      set { showDefaultTips = value; }
+      set
+      {
+        showDefaultTips = value;
+        if (enabled)
+          UpdateIcon();
+      }
     }
 
     #endregion
@@ -384,7 +422,7 @@ namespace BrokenEvent.Shared
     /// Works only when running on Vista and <see cref="ShowDefaultTips"/> is false
     /// </summary>
     [Description("Occurs when the tooltip is being shown")]
-    public event EventHandler TooltipShown
+    public event EventHandler<TooltipShowArgs> TooltipShown
     {
       add
       {
@@ -410,6 +448,42 @@ namespace BrokenEvent.Shared
       remove
       {
         Events.RemoveHandler(EVENT_TOOLTIPCLOSED, value);
+      }
+    }
+
+    /// <summary>
+    /// Occurs when the tooltip is being shown and its size has to be measured.
+    /// Works only when running on Vista and <see cref="ShowDefaultTips"/> and
+    /// <see cref="ShowOwnerUI"/> are false.
+    /// </summary>
+    [Description("Occurs when the tooltip is being shown and its size has to be measured.")]
+    public event EventHandler<HintMeasureEventArgs> TooltipMeasure
+    {
+      add
+      {
+        Events.AddHandler(EVENT_TOOLTIPMEASURE, value);
+      }
+      remove
+      {
+        Events.RemoveHandler(EVENT_TOOLTIPMEASURE, value);
+      }
+    }
+
+    /// <summary>
+    /// Occurs when the tooltip is being painted.
+    /// Works only when running on Vista and <see cref="ShowDefaultTips"/> and
+    /// <see cref="ShowOwnerUI"/> are false.
+    /// </summary>
+    [Description("Occurs when the tooltip is being painted.")]
+    public event EventHandler<HintPaintEventArgs> TooltipPaint
+    {
+      add
+      {
+        Events.AddHandler(EVENT_TOOLTIPPAINT, value);
+      }
+      remove
+      {
+        Events.RemoveHandler(EVENT_TOOLTIPPAINT, value);
       }
     }
 
@@ -537,26 +611,36 @@ namespace BrokenEvent.Shared
       eventHandler(this, EventArgs.Empty);
     }
 
-    private void OnToolTipShown()
+    private void OnToolTipShown(int x, int y)
     {
       if (showDefaultTips)
         return;
 
-      EventHandler eventHandler = (EventHandler)Events[EVENT_TOOLTIPSHOWN];
-      if (eventHandler == null)
-        return;
-      eventHandler(this, EventArgs.Empty);
+      if (showOwnerUI)
+      {
+        EventHandler<TooltipShowArgs> eventHandler = (EventHandler<TooltipShowArgs>)Events[EVENT_TOOLTIPSHOWN];
+        if (eventHandler == null)
+          return;
+        eventHandler(this, new TooltipShowArgs(new Point(x, y)));
+      }
+
+      hintWindow.Show(new Point(x, y));
     }
 
     private void OnToolTipClosed()
     {
       if (showDefaultTips)
         return;
-
-      EventHandler eventHandler = (EventHandler)Events[EVENT_TOOLTIPCLOSED];
-      if (eventHandler == null)
-        return;
-      eventHandler(this, EventArgs.Empty);
+     
+      if (showOwnerUI)
+      {
+        EventHandler eventHandler = (EventHandler)Events[EVENT_TOOLTIPCLOSED];
+        if (eventHandler == null)
+          return;
+        eventHandler(this, EventArgs.Empty);
+      }
+      else
+        hintWindow.Hide();
     }
 
     private void OnBalloonTipClosed()
@@ -647,11 +731,100 @@ namespace BrokenEvent.Shared
         UpdateIcon();
     }
 
+    private void OnTooltipMeasure(ref Size size)
+    {
+      EventHandler<HintMeasureEventArgs> handler = (EventHandler<HintMeasureEventArgs>)Events[EVENT_TOOLTIPMEASURE];
+      if (handler != null)
+      {
+        HintMeasureEventArgs args = new HintMeasureEventArgs(size);
+        handler(this, args);
+        size = args.Size;
+      }
+    }
+
+    private bool OnTooltipPaint(Graphics g, Size size, VisualStyleRenderer renderer)
+    {
+      EventHandler<HintPaintEventArgs> handler = (EventHandler<HintPaintEventArgs>)Events[EVENT_TOOLTIPPAINT];
+      if (handler != null)
+      {
+        handler(this, new HintPaintEventArgs(g, size, renderer));
+        return true;
+      }
+
+      return false;
+    }
+
+    #endregion
+
+    #region Vista Hint
+
+    private class HintWindow : HintNativeWindow
+    {
+      private readonly TrayIcon owner;
+      private VisualStyleRenderer renderer = new VisualStyleRenderer(VisualStyleElement.ToolTip.Standard.Normal);
+      private const int PADDING = 4;
+
+      public HintWindow(IntPtr ownerHandle, TrayIcon owner)
+        : base(ownerHandle, Color.Lime)
+      {
+        this.owner = owner;
+      }
+
+      protected override void Paint(Graphics g, Size size)
+      {
+        using (Brush brush = new SolidBrush(Color.Lime))
+          g.FillRectangle(brush, 0, 0, size.Width, size.Height);
+
+        if (owner.OnTooltipPaint(g, size, renderer))
+          return;
+
+        renderer.DrawBackground(g, new Rectangle(Point.Empty, size));
+        renderer.DrawText(
+            g,
+            new Rectangle(
+                PADDING,
+                PADDING,
+                size.Width - PADDING,
+                size.Height - PADDING
+              ),
+            owner.longHintText,
+            false,
+            TextFormatFlags.TextBoxControl
+          );
+      }
+
+      protected override void Measure(ref Point pos, out Size size)
+      {
+        using (Graphics g = Graphics.FromHwnd(Handle))
+          size = renderer.GetTextExtent(g, owner.longHintText, TextFormatFlags.TextBoxControl).Size;
+
+        owner.OnTooltipMeasure(ref size);
+        
+        size = new Size(size.Width + PADDING * 2, size.Height + PADDING * 2);
+
+        pos.Y -= size.Height;
+        Rectangle workingArea = Screen.GetWorkingArea(pos);
+        if (pos.X < workingArea.X)
+          pos.X = workingArea.X;
+        if (pos.Y < workingArea.Y)
+          pos.Y = workingArea.Y;
+
+        if (pos.X + size.Width > workingArea.Right)
+          pos.X = workingArea.Right - size.Width;
+        if (pos.Y + size.Height > workingArea.Bottom)
+          pos.Y = workingArea.Bottom - size.Height;
+      }
+    }
+
     #endregion
 
     protected override void Dispose(bool disposing)
     {
-      RemoveIcon();
+      if (ownerForm != null)
+        RemoveIcon();
+      if (hintWindow != null)
+        hintWindow.DestroyHandle();
+      ownerForm = null;
       base.Dispose(disposing);
     }
 
@@ -737,7 +910,7 @@ namespace BrokenEvent.Shared
           OnBalloonTipClicked();
           return true;
         case (int)NotifyIconParamMessages.NIN_POPUPOPEN:
-          OnToolTipShown();
+          OnToolTipShown(((int)msg.WParam) & 0xFFFF, (((int)msg.WParam) >> 16) & 0xFFFF);
           return true;
         case (int)NotifyIconParamMessages.NIN_POPUPCLOSE:
           OnToolTipClosed();
@@ -838,14 +1011,14 @@ namespace BrokenEvent.Shared
       if (caption.Length >= 64)
       {
         if (trimLongText)
-          caption = caption.Substring(0, 63);
+          caption = caption.Substring(0, 61) + "...";
         else
           throw new ArgumentOutOfRangeException("caption", caption.Length, "Caption should be less than 64 chars");
       }
       if (text.Length >= 256)
       {
         if (trimLongText)
-          text = text.Substring(0, 255);
+          text = text.Substring(0, 253) + "...";
         else
           throw new ArgumentOutOfRangeException("text", text.Length, "Text should be less than 64 chars");
       }
@@ -1077,6 +1250,26 @@ namespace BrokenEvent.Shared
     }
   }
 
+#if SHARED_PUBLIC_API
+  public
+#else
+  internal
+#endif
+  class TooltipShowArgs: EventArgs
+  {
+    private Point position;
+
+    public TooltipShowArgs(Point position)
+    {
+      this.position = position;
+    }
+
+    public Point Position
+    {
+      get { return position; }
+    }
+  }
+
   internal enum NotifyIconParamMessages
   {
     NIN_SELECT = 0x0400,
@@ -1089,6 +1282,11 @@ namespace BrokenEvent.Shared
     NIN_POPUPCLOSE = 0x0407,
   }
 
+#if SHARED_PUBLIC_API
+  public
+#else
+  internal
+#endif
   enum NotifyIconIcons
   {
     None,

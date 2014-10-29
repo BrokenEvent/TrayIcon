@@ -12,6 +12,7 @@ namespace BrokenEvent.TrayIconDemo
     {
       InitializeComponent();
 
+      // a simple way to get application icon. Well, buggy, it doesn't work when app is running from share
       Icon = myTrayIcon.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 
       Array enumValues = Enum.GetValues(typeof (NotifyIconIcons));
@@ -72,6 +73,108 @@ namespace BrokenEvent.TrayIconDemo
     private void cbLargeIcons_CheckedChanged(object sender, EventArgs e)
     {
       myTrayIcon.UseLargeIcons = cbLargeIcons.Checked;
+    }
+
+    private void lblCustomHintTest_MouseLeave(object sender, EventArgs e)
+    {
+      customHint.Hide();
+    }
+
+    private void lblCustomHintTest_MouseEnter(object sender, EventArgs e)
+    {
+      customHint.Show(PointToScreen(new Point(lblCustomHintTest.Left, lblCustomHintTest.Top + lblCustomHintTest.Height)));
+    }
+
+    private void customHint_OnMeasure(object sender, HintMeasureEventArgs e)
+    {
+      e.Size = new Size(e.Size.Width + 32 + customHint.InnerPadding.Left, 32);
+    }
+
+    private void customHint_OnPaint(object sender, HintPaintEventArgs e)
+    {
+      DrawHintWithPicture(e, customHint.Text, "Rendered from form");
+    }
+
+    private void DrawHintWithPicture(HintPaintEventArgs e, string text, string subText)
+    {
+      if (e.Renderer != null)
+        e.Renderer.DrawBackground(e.Graphics, new Rectangle(Point.Empty, e.Size));
+      else // fallback for old windows versions
+        using (Brush brush = new SolidBrush(SystemColors.Info))
+          e.Graphics.FillRectangle(brush, new Rectangle(Point.Empty, e.Size));
+
+      e.Graphics.DrawIcon(Icon, new Rectangle(customHint.InnerPadding.Left, customHint.InnerPadding.Top, 32, 32));
+
+      if (e.Renderer != null)
+      {
+        int height = e.Renderer.GetTextExtent(e.Graphics, subText, TextFormatFlags.TextBoxControl).Height;
+
+        e.Renderer.DrawText(
+            e.Graphics,
+            new Rectangle(
+                  customHint.InnerPadding.Left * 2 + 32,
+                  customHint.InnerPadding.Top,
+                  e.Size.Width - customHint.InnerPadding.Right,
+                  e.Size.Height - customHint.InnerPadding.Bottom
+                ),
+                text,
+                false,
+                TextFormatFlags.TextBoxControl
+          );
+        e.Renderer.DrawText(
+            e.Graphics,
+            new Rectangle(
+                  customHint.InnerPadding.Left * 2 + 32,
+                  customHint.InnerPadding.Top + height,
+                  e.Size.Width - customHint.InnerPadding.Right,
+                  e.Size.Height - customHint.InnerPadding.Bottom - height
+                ),
+                subText,
+                true,
+                TextFormatFlags.TextBoxControl
+          );
+      }
+      else // fallback for old windows versions
+      {
+        int height = (int)e.Graphics.MeasureString(subText, SystemFonts.DefaultFont).Height;
+        using (Brush brush = new SolidBrush(Color.DarkBlue))
+          e.Graphics.DrawString(
+              text,
+              SystemFonts.DefaultFont,
+              brush,
+              new RectangleF(
+                  customHint.InnerPadding.Left * 2 + 32,
+                  customHint.InnerPadding.Top,
+                  e.Size.Width - customHint.InnerPadding.Right,
+                  e.Size.Height - customHint.InnerPadding.Bottom
+                ),
+              StringFormat.GenericDefault
+            );
+
+        using (Brush brush = new SolidBrush(Color.Gray))
+          e.Graphics.DrawString(
+              subText,
+              SystemFonts.DefaultFont,
+              brush,
+              new RectangleF(
+                  customHint.InnerPadding.Left * 2 + 32,
+                  customHint.InnerPadding.Top + height,
+                  e.Size.Width - customHint.InnerPadding.Right,
+                  e.Size.Height - customHint.InnerPadding.Bottom - height
+                ),
+              StringFormat.GenericDefault
+            );        
+      }
+    }
+
+    private void myTrayIcon_TooltipPaint(object sender, HintPaintEventArgs e)
+    {
+      DrawHintWithPicture(e, myTrayIcon.LongHintText, myTrayIcon.HintText);
+    }
+
+    private void cbShowDefaultTips_CheckedChanged(object sender, EventArgs e)
+    {
+      myTrayIcon.ShowDefaultTips = cbShowDefaultTips.Checked;
     }
   }
 }
