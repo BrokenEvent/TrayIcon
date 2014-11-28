@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Windows.Forms;
 using System.Windows.Forms.VisualStyles;
 
 namespace BrokenEvent.Shared
@@ -7,10 +8,17 @@ namespace BrokenEvent.Shared
   class HintMeasureEventArgs : EventArgs
   {
     private Size size;
+    private readonly VisualStyleRenderer renderer;
 
-    public HintMeasureEventArgs(Size size)
+    public HintMeasureEventArgs(Size size, VisualStyleRenderer renderer)
     {
       this.size = size;
+      this.renderer = renderer;
+    }
+
+    public VisualStyleRenderer Renderer
+    {
+      get { return renderer; }
     }
 
     public Size Size
@@ -20,6 +28,11 @@ namespace BrokenEvent.Shared
     }
   }
 
+#if SHARED_PUBLIC_API
+  public
+#else
+  internal
+#endif
   class HintPaintEventArgs : EventArgs
   {
     private readonly Size size;
@@ -46,6 +59,28 @@ namespace BrokenEvent.Shared
     public VisualStyleRenderer Renderer
     {
       get { return renderer; }
+    }
+
+    public void DrawHintBackground()
+    {
+      renderer.DrawBackground(graphics, new Rectangle(Point.Empty, size));
+    }
+
+    public void DrawHintText(string text)
+    {
+      const int PADDING = 4;
+      renderer.DrawText(
+          graphics,
+          new Rectangle(
+              PADDING,
+              PADDING,
+              size.Width - PADDING,
+              size.Height - PADDING
+            ),
+          text,
+          false,
+          TextFormatFlags.TextBoxControl
+        );
     }
   }
 }

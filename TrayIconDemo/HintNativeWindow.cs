@@ -40,22 +40,27 @@ namespace BrokenEvent.Shared
     private Size size;
     private Color transparencyColor;
 
-    protected HintNativeWindow(IntPtr ownerHandle, Color transparencyColor): this(ownerHandle)
+    protected HintNativeWindow(IntPtr ownerHandle, Color transparencyColor)
+      : this(ownerHandle, WindowClassExFlags.WS_EX_TRANSPARENT | WindowClassExFlags.WS_EX_LAYERED)
     {
       this.transparencyColor = transparencyColor;
       User32.SetLayeredWindowAttributes(Handle, (uint)transparencyColor.ToArgb(), 0, LayeredWindowCommands.LWA_COLORKEY);
     }
 
-    protected HintNativeWindow(IntPtr ownerHandle)
-    {      
+    private HintNativeWindow(IntPtr ownerHandle, WindowClassExFlags styles)
+    {
       CreateParams cp = new CreateParams();
       cp.Parent = ownerHandle;
       uint style = (uint)(WindowStyles.WS_DISABLED | WindowStyles.WS_POPUP);
       cp.Style = (int)style;
       cp.ClassStyle |= (int)WindowClassStyles.CS_DROPSHADOW;
-      cp.ExStyle = (int)(WindowClassExFlags.WS_EX_NOACTIVATE | WindowClassExFlags.WS_EX_NOPARENTNOTIFY | WindowClassExFlags.WS_EX_TOOLWINDOW | WindowClassExFlags.WS_EX_TOPMOST | WindowClassExFlags.WS_EX_TRANSPARENT | WindowClassExFlags.WS_EX_LAYERED);
+      cp.ExStyle = (int)(WindowClassExFlags.WS_EX_NOACTIVATE | WindowClassExFlags.WS_EX_NOPARENTNOTIFY | WindowClassExFlags.WS_EX_TOOLWINDOW | WindowClassExFlags.WS_EX_TOPMOST | styles);
 
       CreateHandle(cp);
+    }
+
+    protected HintNativeWindow(IntPtr ownerHandle): this(ownerHandle, 0)
+    {
     }
 
     public void Show(int x, int y, int width, int height)
@@ -84,6 +89,26 @@ namespace BrokenEvent.Shared
           size.Height,
           SetWindowPosFlags.ShowWindow | SetWindowPosFlags.NoActivate
         );
+    }
+
+    public void Refresh(Point position)
+    {
+      Measure(ref position, out size);
+      User32.SetWindowPos(
+          Handle,
+          IntPtr.Zero,
+          position.X,
+          position.Y,
+          size.Width,
+          size.Height,
+          SetWindowPosFlags.NoActivate
+        );
+      Redraw();
+    }
+
+    public void Redraw()
+    {
+      User32.RedrawWindow(Handle, IntPtr.Zero, IntPtr.Zero, RedrawWindowFlags.RDW_INVALIDATE);
     }
 
     public void Hide()

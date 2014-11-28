@@ -227,6 +227,8 @@ namespace BrokenEvent.Shared
     private bool showDefaultTips = true;
     private HintWindow hintWindow;
     private bool showOwnerUI = false;
+    private bool customHintVisible;
+    private Point customHintPosition;
 
     private static readonly object EVENT_MOUSEDOWN = new object();
     private static readonly object EVENT_MOUSEMOVE = new object();
@@ -260,6 +262,9 @@ namespace BrokenEvent.Shared
       get { return hintText; }
       set
       {
+        if (hintText == value)
+          return;
+
         if (hintText.Length >= 128)
         {
           if (trimLongText)
@@ -277,7 +282,13 @@ namespace BrokenEvent.Shared
     public string LongHintText
     {
       get { return longHintText; }
-      set { longHintText = value; }
+      set
+      {
+        if (longHintText == value)
+          return;
+
+        longHintText = value;
+      }
     }
 
     [Description("Tray icon")]
@@ -286,6 +297,8 @@ namespace BrokenEvent.Shared
       get { return icon; }
       set
       {
+        if (icon == value)
+          return;
         icon = value;
         if (enabled)
           UpdateIcon();
@@ -299,8 +312,6 @@ namespace BrokenEvent.Shared
       set
       {
         ownerForm = value;
-        if (ownerForm != null && useVersion4 && !showOwnerUI)
-          hintWindow = new HintWindow(ownerForm.Handle, this);
         if (enabled)
           UpdateIcon();
       }
@@ -310,18 +321,7 @@ namespace BrokenEvent.Shared
     public bool ShowOwnerUI
     {
       get { return showOwnerUI; }
-      set
-      {
-        showOwnerUI = value;
-        if (value && hintWindow != null)
-        {
-          hintWindow.DestroyHandle();
-          hintWindow = null;
-        }
-
-        if (ownerForm != null && useVersion4 && !showOwnerUI)
-          hintWindow = new HintWindow(ownerForm.Handle, this);
-      }
+      set { showOwnerUI = value; }
     }
 
     [Description("If the icon is visible")]
@@ -330,6 +330,8 @@ namespace BrokenEvent.Shared
       get { return enabled; }
       set
       {
+        if (enabled == value)
+          return;
         enabled = value;
         if (value)
           UpdateIcon();
@@ -379,6 +381,16 @@ namespace BrokenEvent.Shared
         if (enabled)
           UpdateIcon();
       }
+    }
+
+    /// <summary>
+    /// Returns true if Vista+ custom hint is visible (currently within <see cref="TooltipShown"/> and <see cref="TooltipClosed"/> events) and false otherwise
+    /// </summary>
+    [Browsable(false)]
+    [ReadOnly(true)]
+    public bool CustomHintVisible
+    {
+      get { return customHintVisible; }
     }
 
     #endregion
@@ -616,6 +628,8 @@ namespace BrokenEvent.Shared
       if (showDefaultTips)
         return;
 
+      customHintVisible = true;
+
       if (showOwnerUI)
       {
         EventHandler<TooltipShowArgs> eventHandler = (EventHandler<TooltipShowArgs>)Events[EVENT_TOOLTIPSHOWN];
@@ -624,7 +638,11 @@ namespace BrokenEvent.Shared
         eventHandler(this, new TooltipShowArgs(new Point(x, y)));
       }
 
-      hintWindow.Show(new Point(x, y));
+      if (ownerForm != null && useVersion4)
+        hintWindow = new HintWindow(IntPtr.Zero, this);
+
+      hintWindow.Show(customHintPosition = new Point(x, y));
+
     }
 
     private void OnToolTipClosed()
@@ -632,6 +650,8 @@ namespace BrokenEvent.Shared
       if (showDefaultTips)
         return;
      
+      customHintVisible = false;
+
       if (showOwnerUI)
       {
         EventHandler eventHandler = (EventHandler)Events[EVENT_TOOLTIPCLOSED];
@@ -731,12 +751,12 @@ namespace BrokenEvent.Shared
         UpdateIcon();
     }
 
-    private void OnTooltipMeasure(ref Size size)
+    private void OnTooltipMeasure(ref Size size, VisualStyleRenderer renderer)
     {
       EventHandler<HintMeasureEventArgs> handler = (EventHandler<HintMeasureEventArgs>)Events[EVENT_TOOLTIPMEASURE];
       if (handler != null)
       {
-        HintMeasureEventArgs args = new HintMeasureEventArgs(size);
+        HintMeasureEventArgs args = new HintMeasureEventArgs(size, renderer);
         handler(this, args);
         size = args.Size;
       }
@@ -765,18 +785,20 @@ namespace BrokenEvent.Shared
       private const int PADDING = 4;
 
       public HintWindow(IntPtr ownerHandle, TrayIcon owner)
-        : base(ownerHandle, Color.Lime)
+        : base(ownerHandle)
       {
         this.owner = owner;
       }
 
       protected override void Paint(Graphics g, Size size)
       {
-        using (Brush brush = new SolidBrush(Color.Lime))
+        using (Brush brush = new SolidBrush(TransparencyColor))
           g.FillRectangle(brush, 0, 0, size.Width, size.Height);
 
         if (owner.OnTooltipPaint(g, size, renderer))
           return;
+
+        string text = string.IsNullOrEmpty(owner.longHintText) ? owner.hintText : owner.longHintText;
 
         renderer.DrawBackground(g, new Rectangle(Point.Empty, size));
         renderer.DrawText(
@@ -787,7 +809,7 @@ namespace BrokenEvent.Shared
                 size.Width - PADDING,
                 size.Height - PADDING
               ),
-            owner.longHintText,
+            text,
             false,
             TextFormatFlags.TextBoxControl
           );
@@ -795,10 +817,12 @@ namespace BrokenEvent.Shared
 
       protected override void Measure(ref Point pos, out Size size)
       {
-        using (Graphics g = Graphics.FromHwnd(Handle))
-          size = renderer.GetTextExtent(g, owner.longHintText, TextFormatFlags.TextBoxControl).Size;
+        string text = string.IsNullOrEmpty(owner.longHintText) ? owner.hintText : owner.longHintText;
 
-        owner.OnTooltipMeasure(ref size);
+        using (Graphics g = Graphics.FromHwnd(Handle))
+          size = renderer.GetTextExtent(g, text, TextFormatFlags.TextBoxControl).Size;
+
+        owner.OnTooltipMeasure(ref size, renderer);
         
         size = new Size(size.Width + PADDING * 2, size.Height + PADDING * 2);
 
@@ -823,7 +847,10 @@ namespace BrokenEvent.Shared
       if (ownerForm != null)
         RemoveIcon();
       if (hintWindow != null)
+      {
         hintWindow.DestroyHandle();
+        hintWindow = null;
+      }
       ownerForm = null;
       base.Dispose(disposing);
     }
@@ -1084,6 +1111,17 @@ namespace BrokenEvent.Shared
       Shell_NotifyIcon(NotifyIconMessages.SetFocus, data);      
     }
 
+    /// <summary>
+    /// If the custom hint is visible (<see cref="CustomHintVisible"/> is true) refreshes it, making full cycle of Measure-Paint
+    /// </summary>
+    public void RefreshCustomHint()
+    {
+      if (!customHintVisible || !useVersion4 || ownerForm == null)
+        return;
+
+      hintWindow.Refresh(customHintPosition);
+    }
+
     #endregion
 
     private void ShowBalloonTipLegacy(string caption, string text, NotifyIconIcons balloonIcon, bool noSound = false, bool realTime = false)
@@ -1239,7 +1277,7 @@ namespace BrokenEvent.Shared
       if (contextMenu != null)
       {
         SetForegroundWindow(contextMenu.Handle);
-        contextMenu.Show(ownerForm, ownerForm.PointToClient(GetIconPosition()), ToolStripDropDownDirection.AboveRight);
+        contextMenu.Show(GetIconPosition());
         return;
       }
 

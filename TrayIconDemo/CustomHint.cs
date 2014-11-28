@@ -53,21 +53,11 @@ namespace BrokenEvent.Shared
     }
 
     /// <summary>
-    /// Show hint at given position.
-    /// Equal to call <code>Show(pos, HintPosition.BelowRight);</code>
-    /// </summary>
-    /// <param name="pos">Position to show in screen coordinates</param>
-    public void Show(Point pos)
-    {
-      Show(pos, HintPosition.BelowRight);
-    }
-
-    /// <summary>
     /// Show hint with given relation to given position
     /// </summary>
     /// <param name="pos">Position to show in screen coordinates</param>
-    /// <param name="hintPosition">Relation to given point</param>
-    public void Show(Point pos, HintPosition hintPosition)
+    /// <param name="includeCursor">Shift hint down to not intersect with cursor</param>
+    public void Show(Point pos, bool includeCursor = false)
     {
       if (ownerForn == null)
         return;
@@ -76,8 +66,10 @@ namespace BrokenEvent.Shared
         hintWindow = new HintWindow(IntPtr.Zero, this);
 
       Size size;
-      Measure(ref pos, out size, hintPosition);
+      Measure(ref pos, out size, includeCursor);
       hintWindow.Show(pos.X, pos.Y, size.Width, size.Height);
+      if (visible)
+        hintWindow.Redraw();
       visible = true;
     }
 
@@ -109,7 +101,7 @@ namespace BrokenEvent.Shared
 
     protected virtual void Paint(Graphics g, Size size)
     {
-      using (Brush brush = new SolidBrush(Color.Lime))
+      using (Brush brush = new SolidBrush(hintWindow.TransparencyColor))
         g.FillRectangle(brush, 0, 0, size.Width, size.Height);
 
       EventHandler<HintPaintEventArgs> handler = (EventHandler<HintPaintEventArgs>)Events[EVENT_ONPAINT];
@@ -134,7 +126,7 @@ namespace BrokenEvent.Shared
                   size.Width - innerPadding.Right,
                   size.Height - innerPadding.Bottom
                 ),
-              StringFormat.GenericDefault
+              StringFormat.GenericTypographic
             );
         return;
       }
@@ -154,24 +146,7 @@ namespace BrokenEvent.Shared
         );
     }
 
-    private static Point MakeHintPosition(Point showPos, Size size, HintPosition hintPosition)
-    {
-      switch (hintPosition)
-      {
-        case HintPosition.AboveLeft:
-          return new Point(showPos.X - size.Width, showPos.Y - size.Height);
-        case HintPosition.AboveRight:
-          return new Point(showPos.X, showPos.Y - size.Height);
-        case HintPosition.BelowLeft:
-          return new Point(showPos.X - size.Width, showPos.Y);
-        case HintPosition.BelowRight:
-          return showPos;
-        default:
-          return Point.Empty;
-      }
-    }
-
-    private void Measure(ref Point showPos, out Size size, HintPosition hintPosition)
+    private void Measure(ref Point showPos, out Size size, bool includeCursor)
     {
       size = Measure();
       size.Width += innerPadding.Left + innerPadding.Right;
@@ -179,17 +154,28 @@ namespace BrokenEvent.Shared
 
       Rectangle workingArea = GetHintOwnerRect(showPos);
 
-      showPos = MakeHintPosition(showPos, size, hintPosition);
+      Point newPos = new Point(showPos.X, showPos.Y + (includeCursor ? 16 : 0));
+      if (newPos.X + size.Width > workingArea.Right)
+      {
+        newPos.X = showPos.X - size.Width;
+        if (newPos.X < workingArea.X)
+        {
+          if (newPos.X + size.Width > workingArea.Right)
+            newPos.X = workingArea.Right - size.Width;
+        }
+      }
 
-      if (showPos.X < workingArea.X)
-        showPos.X = workingArea.X;
-      if (showPos.Y < workingArea.Y)
-        showPos.Y = workingArea.Y;
+      if (newPos.Y + size.Height > workingArea.Bottom)
+      {
+        newPos.Y = showPos.Y - size.Height;
+        if (newPos.Y < workingArea.Y)
+        {
+          if (newPos.Y + size.Height > workingArea.Bottom)
+            newPos.Y = workingArea.Bottom - size.Height;
+        }
+      }
 
-      if (showPos.X + size.Width > workingArea.Right)
-        showPos.X = workingArea.Right - size.Width;
-      if (showPos.Y + size.Height > workingArea.Bottom)
-        showPos.Y = workingArea.Bottom - size.Height;
+      showPos = newPos;
     }
 
     protected virtual Rectangle GetHintOwnerRect(Point targetPos)
@@ -200,16 +186,19 @@ namespace BrokenEvent.Shared
     protected virtual Size Measure()
     {
       Size result;
-      if (renderer != null)
-        using (Graphics g = Graphics.FromHwnd(hintWindow.Handle))
+      using (Graphics g = Graphics.FromHwnd(hintWindow.Handle))
+        if (renderer != null)
           result = renderer.GetTextExtent(g, text, TextFormatFlags.TextBoxControl).Size;
-      else // fallback for WinXP and others who didn't know this style
-        result = TextRenderer.MeasureText(text, SystemFonts.DefaultFont, Size.Empty, TextFormatFlags.TextBoxControl);
+        else // fallback for WinXP and others who didn't know this style
+        {
+          SizeF size = g.MeasureString(text, SystemFonts.DefaultFont, 0, StringFormat.GenericTypographic);
+          result = new Size((int)size.Width, (int)size.Height);
+        }
 
       EventHandler<HintMeasureEventArgs> handler = (EventHandler<HintMeasureEventArgs>)Events[EVENT_ONMEASURE];
       if (handler != null)
       {
-        HintMeasureEventArgs args = new HintMeasureEventArgs(result);
+        HintMeasureEventArgs args = new HintMeasureEventArgs(result, renderer);
         handler(this, args);
         return args.Size;
       }
@@ -229,7 +218,7 @@ namespace BrokenEvent.Shared
     {
       private readonly CustomHint owner;
 
-      public HintWindow(IntPtr ownerHandle, CustomHint owner) : base(ownerHandle, Color.Lime)
+      public HintWindow(IntPtr ownerHandle, CustomHint owner) : base(ownerHandle)
       {
         this.owner = owner;
       }
@@ -241,21 +230,8 @@ namespace BrokenEvent.Shared
 
       protected override void Measure(ref Point pos, out Size size)
       {
-        owner.Measure(ref pos, out size, HintPosition.BelowRight);
+        owner.Measure(ref pos, out size, false);
       }
     }
-  }
-
-#if SHARED_PUBLIC_API
-  public
-#else
-  internal
-#endif
-  enum HintPosition
-  {
-    AboveRight,
-    AboveLeft,
-    BelowRight,
-    BelowLeft,
   }
 }
