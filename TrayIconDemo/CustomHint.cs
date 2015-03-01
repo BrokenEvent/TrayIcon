@@ -8,17 +8,29 @@ namespace BrokenEvent.Shared
 {
   class CustomHint: Component
   {
-    private Form ownerForn;
+    private Form ownerForm;
     private HintWindow hintWindow;
     private bool visible;
     private string text;
     private Padding innerPadding = new Padding(2);
     private VisualStyleRenderer renderer;
 
+    public CustomHint(IContainer cont) : this()
+    {
+      cont.Add(this);
+    }
+
     public CustomHint()
     {
-      if (VisualStyleRenderer.IsElementDefined(VisualStyleElement.ToolTip.Standard.Normal))
+      UpdateVisualStyleRenderer();
+    }
+
+    public void UpdateVisualStyleRenderer()
+    {
+      if (VisualStyleRenderer.IsSupported && VisualStyleRenderer.IsElementDefined(VisualStyleElement.ToolTip.Standard.Normal))
         renderer = new VisualStyleRenderer(VisualStyleElement.ToolTip.Standard.Normal);
+      else
+        renderer = null;
     }
 
     private static readonly object EVENT_ONMEASURE = new object();
@@ -39,10 +51,10 @@ namespace BrokenEvent.Shared
     }
 
     [Description("Owner form")]
-    public Form OwnerForn
+    public Form OwnerForm
     {
-      get { return ownerForn; }
-      set { ownerForn = value; }
+      get { return ownerForm; }
+      set { ownerForm = value; }
     }
 
     [ReadOnly(true)]
@@ -59,7 +71,7 @@ namespace BrokenEvent.Shared
     /// <param name="includeCursor">Shift hint down to not intersect with cursor</param>
     public void Show(Point pos, bool includeCursor = false)
     {
-      if (ownerForn == null)
+      if (ownerForm == null)
         return;
 
       if (hintWindow == null)
@@ -68,6 +80,21 @@ namespace BrokenEvent.Shared
       Size size;
       Measure(ref pos, out size, includeCursor);
       hintWindow.Show(pos.X, pos.Y, size.Width, size.Height);
+      if (visible)
+        hintWindow.Redraw();
+      visible = true;
+    }
+
+    public void Show(Rectangle elementRect)
+    {
+      if (ownerForm == null)
+        return;
+
+      if (hintWindow == null)
+        hintWindow = new HintWindow(IntPtr.Zero, this);
+
+      Measure(ref elementRect);
+      hintWindow.Show(elementRect.X, elementRect.Y, elementRect.Width, elementRect.Height);
       if (visible)
         hintWindow.Redraw();
       visible = true;
@@ -92,7 +119,7 @@ namespace BrokenEvent.Shared
     /// </summary>
     public void Hide()
     {
-      if (ownerForn == null || hintWindow == null)
+      if (ownerForm == null || hintWindow == null)
         return;
 
       hintWindow.Hide();
@@ -115,7 +142,7 @@ namespace BrokenEvent.Shared
       {
         using (Brush brush = new SolidBrush(SystemColors.Info))
           g.FillRectangle(brush, new Rectangle(Point.Empty, size));
-        using (Brush brush = new SolidBrush(Color.DarkBlue))
+        using (Brush brush = new SolidBrush(SystemColors.InfoText))
           g.DrawString(
               text,
               SystemFonts.DefaultFont,
@@ -176,6 +203,31 @@ namespace BrokenEvent.Shared
       }
 
       showPos = newPos;
+    }
+
+    private void Measure(ref Rectangle hintRect)
+    {
+      Size size = Measure();
+      size.Width += innerPadding.Left + innerPadding.Right;
+      size.Height += innerPadding.Top + innerPadding.Bottom;
+
+      Rectangle workingArea = GetHintOwnerRect(hintRect.Location);
+
+      Point newPos = new Point(hintRect.Right, hintRect.Y);
+      if (newPos.X + size.Width > workingArea.Right)
+        newPos.X = hintRect.X - size.Width;
+
+      if (newPos.Y + size.Height > workingArea.Bottom)
+      {
+        newPos.Y = hintRect.Y - size.Height;
+        if (newPos.Y < workingArea.Y)
+        {
+          if (newPos.Y + size.Height > workingArea.Bottom)
+            newPos.Y = workingArea.Bottom - size.Height;
+        }
+      }
+
+      hintRect = new Rectangle(newPos, size);
     }
 
     protected virtual Rectangle GetHintOwnerRect(Point targetPos)

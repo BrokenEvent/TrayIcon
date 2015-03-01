@@ -63,7 +63,11 @@ namespace BrokenEvent.Shared
 
     public void DrawHintBackground()
     {
-      renderer.DrawBackground(graphics, new Rectangle(Point.Empty, size));
+      if (renderer == null) // in case of style is currently not supported (themes disabled?)
+        using (Brush brush = new SolidBrush(SystemColors.Info))
+          graphics.FillRectangle(brush, new Rectangle(Point.Empty, size));
+      else
+        renderer.DrawBackground(graphics, new Rectangle(Point.Empty, size));
     }
 
     public void DrawHintText(string text)

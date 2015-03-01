@@ -252,6 +252,8 @@ namespace BrokenEvent.Shared
       id = ++trayIconId;
 
       useVersion4 = WindowsVersionDetector.RunningOnVista;
+      if (WindowsVersionDetector.RunningOnVista) // no such function in XP
+        User32.ChangeWindowMessageFilter(WM_TASKBARCREATED, MessageFilterActions.Allow);
     }
 
     #region Public properties
@@ -312,6 +314,9 @@ namespace BrokenEvent.Shared
       set
       {
         ownerForm = value;
+        if (ownerForm == null)
+          return;
+
         if (enabled)
           UpdateIcon();
       }
@@ -774,6 +779,12 @@ namespace BrokenEvent.Shared
       return false;
     }
 
+    private void OnWindowsThemeChanged()
+    {
+      if (hintWindow != null)
+        hintWindow.RefreshVisualStyleRenderer();
+    }
+
     #endregion
 
     #region Vista Hint
@@ -781,13 +792,22 @@ namespace BrokenEvent.Shared
     private class HintWindow : HintNativeWindow
     {
       private readonly TrayIcon owner;
-      private VisualStyleRenderer renderer = new VisualStyleRenderer(VisualStyleElement.ToolTip.Standard.Normal);
+      private VisualStyleRenderer renderer;
       private const int PADDING = 4;
 
       public HintWindow(IntPtr ownerHandle, TrayIcon owner)
         : base(ownerHandle)
       {
         this.owner = owner;
+        RefreshVisualStyleRenderer();
+      }
+
+      public void RefreshVisualStyleRenderer()
+      {
+        if (VisualStyleRenderer.IsSupported && VisualStyleRenderer.IsElementDefined(VisualStyleElement.ToolTip.Standard.Normal))
+          renderer = new VisualStyleRenderer(VisualStyleElement.ToolTip.Standard.Normal);
+        else
+          renderer = null;
       }
 
       protected override void Paint(Graphics g, Size size)
@@ -799,6 +819,26 @@ namespace BrokenEvent.Shared
           return;
 
         string text = string.IsNullOrEmpty(owner.longHintText) ? owner.hintText : owner.longHintText;
+
+        if (renderer == null) // in case of style is currently not supported (themes disabled?)
+        {
+          using (Brush brush = new SolidBrush(SystemColors.Info))
+            g.FillRectangle(brush, new Rectangle(Point.Empty, size));
+          using (Brush brush = new SolidBrush(SystemColors.InfoText))
+            g.DrawString(
+                text,
+                SystemFonts.DefaultFont,
+                brush,
+                new Rectangle(
+                    PADDING,
+                    PADDING,
+                    size.Width - PADDING,
+                    size.Height - PADDING
+                  ),  
+                StringFormat.GenericTypographic
+              );
+          return;
+        }
 
         renderer.DrawBackground(g, new Rectangle(Point.Empty, size));
         renderer.DrawText(
@@ -820,7 +860,15 @@ namespace BrokenEvent.Shared
         string text = string.IsNullOrEmpty(owner.longHintText) ? owner.hintText : owner.longHintText;
 
         using (Graphics g = Graphics.FromHwnd(Handle))
-          size = renderer.GetTextExtent(g, text, TextFormatFlags.TextBoxControl).Size;
+        {
+          if (renderer != null)
+            size = renderer.GetTextExtent(g, text, TextFormatFlags.TextBoxControl).Size;
+          else
+          {
+            SizeF s = g.MeasureString(text, SystemFonts.DefaultFont, 0, StringFormat.GenericTypographic);
+            size = new Size((int)s.Width, (int)s.Height);
+          }
+        }
 
         owner.OnTooltipMeasure(ref size, renderer);
         
@@ -878,14 +926,20 @@ namespace BrokenEvent.Shared
         return false;
       }
 
-      if (msg.Msg != CALLBACK_MESSAGE)
-        return false;
-
-      if (msg.LParam == (IntPtr)WM_TASKBARCREATED)
+      if (msg.Msg == WM_TASKBARCREATED)
       {
         WmTaskbarCreated();
         return true;
       }
+
+      if (msg.Msg == (int)Msgs.WM_THEMECHANGED)
+      {
+        OnWindowsThemeChanged();
+        return true;
+      }
+
+      if (msg.Msg != CALLBACK_MESSAGE)
+        return false;
 
       switch ((int)msg.LParam & 0xFFFF) // for WinVista and later lParam is restricted to 16 bits
       {
@@ -1016,7 +1070,11 @@ namespace BrokenEvent.Shared
         data.dwInfoFlags |= NotifyIconInfoFlags.NoSound;
 
       if (!Shell_NotifyIcon(NotifyIconMessages.Modify, data))
+#if DEBUG
         throw new Win32Exception("Shell_NotifyIcon failed");
+#else
+        return;
+#endif
     }
 
     /// <summary>
@@ -1073,7 +1131,11 @@ namespace BrokenEvent.Shared
         data.dwInfoFlags |= NotifyIconInfoFlags.NoSound;
 
       if (!Shell_NotifyIcon(NotifyIconMessages.Modify, data))
+#if DEBUG
         throw new Win32Exception("Shell_NotifyIcon failed");
+#else
+        return;
+#endif
     }
   
     /// <summary>
@@ -1094,8 +1156,10 @@ namespace BrokenEvent.Shared
 
       WinAPI.RECT rect = new WinAPI.RECT();
       int result = Shell_NotifyIconGetRect(ref ident, ref rect);
+#if DEBUG
       if (result != 0)
         throw new Win32Exception(result);
+#endif
 
       return new Point(rect.left, rect.top);
     }    
@@ -1159,7 +1223,11 @@ namespace BrokenEvent.Shared
         data.dwInfoFlags |= NotifyIconInfoFlags.NoSound;
 
       if (!Shell_NotifyIcon(NotifyIconMessages.Modify, data))
+#if DEBUG
         throw new Win32Exception("Shell_NotifyIcon failed");
+#else
+        return;
+#endif
     }   
 
     private void InitNotifyIconData(ref NOTIFYICONDATA data)
@@ -1197,10 +1265,18 @@ namespace BrokenEvent.Shared
         data.uTimeoutOrVersion = 4;
 
         if (!Shell_NotifyIcon(NotifyIconMessages.Add, data))
-          throw new Win32Exception("Shell_NotifyIcon failed");
+#if DEBUG
+        throw new Win32Exception("Shell_NotifyIcon failed");
+#else
+          return;
+#endif
 
         if (!Shell_NotifyIcon(NotifyIconMessages.SetVersion, data))
-          throw new Win32Exception("Shell_NotifyIcon failed");
+#if DEBUG
+        throw new Win32Exception("Shell_NotifyIcon failed");
+#else
+          return;
+#endif
       }
 
       data.hIcon = icon == null ? IntPtr.Zero : icon.Handle;
@@ -1211,7 +1287,11 @@ namespace BrokenEvent.Shared
         data.uFlags |= NotifyIconFlags.ShowTip;
 
       if (!Shell_NotifyIcon(NotifyIconMessages.Modify, data))
+#if DEBUG
         throw new Win32Exception("Shell_NotifyIcon failed");
+#else
+        return;
+#endif
 
       iconAdded = true;
     }
@@ -1224,7 +1304,11 @@ namespace BrokenEvent.Shared
       if (!iconAdded)
       {
         if (!Shell_NotifyIcon(NotifyIconMessages.Add, data))
-          throw new Win32Exception("Shell_NotifyIcon failed");
+#if DEBUG
+        throw new Win32Exception("Shell_NotifyIcon failed");
+#else
+          return;
+#endif
       }
 
       data.hIcon = icon == null ? IntPtr.Zero : icon.Handle;
@@ -1232,7 +1316,12 @@ namespace BrokenEvent.Shared
       data.uCallbackMessage = CALLBACK_MESSAGE;
       data.uFlags = NotifyIconFlags.Icon | NotifyIconFlags.Message | NotifyIconFlags.Tip | NotifyIconFlags.Guid;
 
-      Shell_NotifyIcon(NotifyIconMessages.Modify, data);
+      if (!Shell_NotifyIcon(NotifyIconMessages.Modify, data))
+#if DEBUG
+        throw new Win32Exception("Shell_NotifyIcon failed");
+#else
+        return;
+#endif
 
       iconAdded = true;
     }
@@ -1253,8 +1342,7 @@ namespace BrokenEvent.Shared
       NOTIFYICONDATA4 data = new NOTIFYICONDATA4();
       InitNotifyIconData(ref data);
 
-      if (!Shell_NotifyIcon(NotifyIconMessages.Delete, data))
-        throw new Win32Exception("Shell_NotifyIcon failed");
+      Shell_NotifyIcon(NotifyIconMessages.Delete, data);
       iconAdded = false;
     }
 
@@ -1267,8 +1355,7 @@ namespace BrokenEvent.Shared
       NOTIFYICONDATA data = new NOTIFYICONDATA();
       InitNotifyIconData(ref data);
 
-      if (!Shell_NotifyIcon(NotifyIconMessages.Delete, data))
-        throw new Win32Exception("Shell_NotifyIcon failed");
+      Shell_NotifyIcon(NotifyIconMessages.Delete, data);
       iconAdded = false;
     }
 

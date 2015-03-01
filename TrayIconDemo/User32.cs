@@ -12,14 +12,37 @@ namespace BrokenEvent.Shared
     public static extern bool ShowWindow(IntPtr hWnd, ShowWindowCommands nCmdShow);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, EntryPoint = "SetWindowPos")]
-    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, SetWindowPosFlags uFlags);  
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, SetWindowPosFlags uFlags);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, EntryPoint = "SetLayeredWindowAttributes")]
     public static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, LayeredWindowCommands dwFlags);
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, EntryPoint = "RedrawWindow")]
     public static extern bool RedrawWindow(IntPtr hWnd, IntPtr lprcUpdate, IntPtr hrgnUpdate, RedrawWindowFlags flags);
+
+	  [DllImport("user32.dll", CharSet = CharSet.Auto, EntryPoint = "ChangeWindowMessageFilterEx")]
+	  public static extern bool ChangeWindowMessageFilterEx(IntPtr hWnd, int message, MessageFilterActions action, IntPtr pChangeFilterStruct);
+
+    // Note: MessageFilterActions.Reset is not applicable here
+    [DllImport("user32.dll", CharSet = CharSet.Auto, EntryPoint = "ChangeWindowMessageFilter")]
+	  public static extern bool ChangeWindowMessageFilter(int message, MessageFilterActions action);
 	}
+
+  public enum MessageFilterActions
+  {
+    /// <summary>
+    /// Allows the message through the filter. This enables the message to be received by hWnd, regardless of the source of the message, even it comes from a lower privileged process. 
+    /// </summary>
+    Allow = 1,
+    /// <summary>
+    /// Blocks the message to be delivered to hWnd if it comes from a lower privileged process, unless the message is allowed process-wide by using the ChangeWindowMessageFilter function or globally. 
+    /// </summary>
+    Disallow = 2,
+    /// <summary>
+    /// Resets the window message filter for hWnd to the default. Any message allowed globally or process-wide will get through, but any message not included in those two categories, and which comes from a lower privileged process, will be blocked.
+    /// </summary>
+    Reset = 0
+  }
 
   [Flags]
   public enum RedrawWindowFlags
@@ -698,6 +721,7 @@ namespace BrokenEvent.Shared
 		WM_HOTKEY                 = 0x0312,
 		WM_PRINT                  = 0x0317,
 		WM_PRINTCLIENT            = 0x0318,
+    WM_THEMECHANGED           = 0x031A,
 		WM_HANDHELDFIRST          = 0x0358,
 		WM_HANDHELDLAST           = 0x035F,
 		WM_AFXFIRST               = 0x0360,
