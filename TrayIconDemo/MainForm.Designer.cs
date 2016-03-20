@@ -45,7 +45,7 @@
       this.lblCustomHintTest = new System.Windows.Forms.Label();
       this.cbShowDefaultTips = new System.Windows.Forms.CheckBox();
       this.myTrayIcon = new BrokenEvent.Shared.TrayIcon();
-      this.customHint = new BrokenEvent.Shared.CustomHint(this.components);
+      this.customHint = new BrokenEvent.Shared.CustomHint();
       this.contextMenuStrip.SuspendLayout();
       this.SuspendLayout();
       // 
@@ -213,7 +213,6 @@
       // customHint
       // 
       this.customHint.InnerPadding = new System.Windows.Forms.Padding(4);
-      this.customHint.OwnerForm = this;
       this.customHint.Text = "Here is a some tooltip with fully custom render";
       this.customHint.OnMeasure += new System.EventHandler<BrokenEvent.Shared.HintMeasureEventArgs>(this.customHint_OnMeasure);
       this.customHint.OnPaint += new System.EventHandler<BrokenEvent.Shared.HintPaintEventArgs>(this.customHint_OnPaint);

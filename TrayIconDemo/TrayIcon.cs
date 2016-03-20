@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -32,10 +33,13 @@ namespace BrokenEvent.Shared
     [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true, EntryPoint = "SetForegroundWindow")]
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
+    // ReSharper disable NotAccessedField.Local
+    // ReSharper disable UnusedField.Compiler
+    // ReSharper disable MemberCanBeProtected.Local
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
     private class NOTIFYICONDATA
     {
-      public int cbSize = Marshal.SizeOf(typeof (NOTIFYICONDATA));
+      public int cbSize = Marshal.SizeOf(typeof(NOTIFYICONDATA));
       public IntPtr hWnd;
       public int uID;
       public NotifyIconFlags uFlags;
@@ -59,7 +63,13 @@ namespace BrokenEvent.Shared
       public NotifyIconInfoFlags dwInfoFlags;
       public Guid guidItem;
     }
+    // ReSharper restore NotAccessedField.Local
+    // ReSharper restore UnusedField.Compiler
+    // ReSharper restore MemberCanBeProtected.Local
 
+    // ReSharper disable NotAccessedField.Local
+    // ReSharper disable UnusedField.Compiler
+    // ReSharper disable MemberCanBeProtected.Local
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
     private class NOTIFYICONDATA4 : NOTIFYICONDATA
     {
@@ -69,6 +79,9 @@ namespace BrokenEvent.Shared
       }
       public IntPtr hBalloonIcon;
     }
+    // ReSharper restore NotAccessedField.Local
+    // ReSharper restore UnusedField.Compiler
+    // ReSharper restore MemberCanBeProtected.Local
 
     [StructLayout(LayoutKind.Sequential)]
     public struct NOTIFYICONIDENTIFIER
@@ -79,6 +92,7 @@ namespace BrokenEvent.Shared
       public Guid guidItem;
     }
 
+    // ReSharper disable UnusedMember.Local
     [Flags]
     private enum NotifyIconFlags
     {
@@ -86,18 +100,22 @@ namespace BrokenEvent.Shared
       /// The uCallbackMessage member is valid.
       /// </summary>
       Message = 0x00000001,
+
       /// <summary>
       /// The hIcon member is valid.
       /// </summary>
       Icon = 0x00000002,
+
       /// <summary>
       /// The szTip member is valid.
       /// </summary>
       Tip = 0x00000004,
+
       /// <summary>
       /// The dwState and dwStateMask members are valid.
       /// </summary>
       State = 0x00000008,
+
       /// <summary>
       /// Display a balloon notification. The szInfo, szInfoTitle, dwInfoFlags, and uTimeout members are valid. Note that uTimeout is valid only in Windows 2000 and Windows XP. 
       /// To display the balloon notification, specify <see cref="NotifyIconFlags.Info"/> and provide text in szInfo.
@@ -105,21 +123,26 @@ namespace BrokenEvent.Shared
       /// To add a notification area icon without displaying a notification, do not set the <see cref="NotifyIconFlags.Info"/> flag.
       /// </summary>
       Info = 0x00000010,
+
       /// <summary>
       /// Windows 7 and later: The guidItem is valid.
       /// Windows Vista and earlier: Reserved.
       /// </summary>
       Guid = 0x00000020,
+
       /// <summary>
       /// Windows Vista and later. If the balloon notification cannot be displayed immediately, discard it. Use this flag for notifications that represent real-time information which would be meaningless or misleading if displayed at a later time. For example, a message that states "Your telephone is ringing." <see cref="NotifyIconFlags.RealTime"/> is meaningful only when combined with the <see cref="NotifyIconFlags.Info"/> flag.
       /// </summary>
       RealTime = 0x00000040,
+
       /// <summary>
       /// Windows Vista and later. Use the standard tooltip. Normally, when uVersion is set to NOTIFYICON_VERSION_4, the standard tooltip is suppressed and can be replaced by the application-drawn, pop-up UI. If the application wants to show the standard tooltip with NOTIFYICON_VERSION_4, it can specify <see cref="NotifyIconFlags.ShowTip"/> to indicate the standard tooltip should still be shown.
       /// </summary>
       ShowTip = 0x00000080
     }
+    // ReSharper restore UnusedMember.Local
 
+    // ReSharper disable UnusedMember.Local
     [Flags]
     private enum NofityIconStates
     {
@@ -127,12 +150,15 @@ namespace BrokenEvent.Shared
       /// The icon is hidden.
       /// </summary>
       Hidden = 0x00000001,
+
       /// <summary>
       /// The icon resource is shared between multiple icons.
       /// </summary>
       SharedIcon = 0x00000002,
     }
+    // ReSharper restore UnusedMember.Local
 
+    // ReSharper disable UnusedMember.Local
     [Flags]
     private enum NotifyIconInfoFlags
     {
@@ -140,28 +166,34 @@ namespace BrokenEvent.Shared
       /// No icon.
       /// </summary>
       IconNone = 0x00000000,
+
       /// <summary>
       /// An information icon.
       /// </summary>
       IconInfo = 0x00000001,
+
       /// <summary>
       /// A warning icon.
       /// </summary>
       IconWarning = 0x00000002,
+
       /// <summary>
       /// An error icon.
       /// </summary>
       IconError = 0x00000003,
+
       /// <summary>
       /// Windows XP SP2 and later. 
       /// Windows XP: Use the icon identified in hIcon as the notification balloon's title icon.
       /// Windows Vista and later: Use the icon identified in hBalloonIcon as the notification balloon's title icon.
       /// </summary>
       IconUser = 0x00000004,
+
       /// <summary>
       /// Windows XP and later. Do not play the associated sound. Applies only to notifications.
       /// </summary>
       NoSound = 0x00000010,
+
       /// <summary>
       /// Windows Vista and later. The large version of the icon should be used as the notification icon. This corresponds to the icon with dimensions SM_CXICON x SM_CYICON. If this flag is not set, the icon with dimensions XM_CXSMICON x SM_CYSMICON is used.
       /// This flag can be used with all stock icons.
@@ -169,6 +201,7 @@ namespace BrokenEvent.Shared
       /// New customized icons (NIIF_USER with hBalloonIcon) must supply an SM_CXICON x SM_CYICON version in the supplied icon (hBalloonIcon).
       /// </summary>
       LargeIcon = 0x00000020,
+
       /// <summary>
       /// Windows 7 and later. Do not display the balloon notification if the current user is in "quiet time", which is the first hour after a new user logs into his or her account for the first time. During this time, most notifications should not be sent or shown.
       /// This lets a user become accustomed to a new computer system without those distractions. Quiet time also occurs for each user after an operating system upgrade or clean installation. A notification sent with this flag during quiet time is not queued; it is simply dismissed unshown.
@@ -178,36 +211,44 @@ namespace BrokenEvent.Shared
       /// If the current user is not in quiet time, this flag has no effect.
       /// </summary>
       RespectQuietTime = 0x00000080,
+
       /// <summary>
       /// Windows XP and later. Reserved.
       /// </summary>
       IconMask = 0x0000000F,
     }
+    // ReSharper restore UnusedMember.Local
 
+    // ReSharper disable UnusedMember.Local
     private enum NotifyIconMessages
     {
       /// <summary>
       /// Adds an icon to the status area. The icon is given an identifier in the NOTIFYICONDATA structure pointed to by lpdata—either through its uID or guidItem member. This identifier is used in subsequent calls to <see cref="Shell_NotifyIcon"/> to perform later actions on the icon.
       /// </summary>
       Add = 0x00000000,
+
       /// <summary>
       /// Modifies an icon in the status area. NOTIFYICONDATA structure pointed to by lpdata uses the ID originally assigned to the icon when it was added to the notification area (<see cref="Add"/>) to identify the icon to be modified.
       /// </summary>
       Modify = 0x00000001,
+
       /// <summary>
       /// Deletes an icon from the status area. NOTIFYICONDATA structure pointed to by lpdata uses the ID originally assigned to the icon when it was added to the notification area (<see cref="Add"/>) to identify the icon to be deleted.
       /// </summary>
       Delete = 0x00000002,
+
       /// <summary>
       /// Shell32.dll version 5.0 and later only. Returns focus to the taskbar notification area. Notification area icons should use this message when they have completed their UI operation. For example, if the icon displays a shortcut menu, but the user presses ESC to cancel it, use <see cref="SetFocus"/> to return focus to the notification area.
-      /// </summary>
+      /// </summary>      
       SetFocus = 0x00000003,
+
       /// <summary>
       /// Shell32.dll version 5.0 and later only. Instructs the notification area to behave according to the version number specified in the uVersion member of the structure pointed to by lpdata. The version number specifies which members are recognized.
       /// <see cref="SetVersion"/> must be called every time a notification area icon is added (<see cref="Add"/>). It does not need to be called with <see cref="Modify"/>. The version setting is not persisted once a user logs off.
       /// </summary>
       SetVersion = 0x00000004,
     }
+    // ReSharper restore UnusedMember.Local
 
     #endregion
 
@@ -226,7 +267,7 @@ namespace BrokenEvent.Shared
     private Guid guid;
     private bool showDefaultTips = true;
     private HintWindow hintWindow;
-    private bool showOwnerUI = false;
+    private bool showOwnerUI;
     private bool customHintVisible;
     private Point customHintPosition;
 
@@ -243,8 +284,8 @@ namespace BrokenEvent.Shared
     private static readonly object EVENT_TOOLTIPMEASURE = new object();
     private static readonly object EVENT_TOOLTIPPAINT = new object();
     private static readonly object EVENT_CONTEXTMENUSHOW = new object();
-    private static int trayIconId = 0;
-    private static int WM_TASKBARCREATED = RegisterWindowMessage("TaskbarCreated");
+    private static int trayIconId;
+    private static readonly int WM_TASKBARCREATED = RegisterWindowMessage("TaskbarCreated");
     private const int CALLBACK_MESSAGE = 2048;
 
     public TrayIcon()
@@ -389,7 +430,8 @@ namespace BrokenEvent.Shared
     }
 
     /// <summary>
-    /// Returns true if Vista+ custom hint is visible (currently within <see cref="TooltipShown"/> and <see cref="TooltipClosed"/> events) and false otherwise
+    /// Gets a value indicating whether Vista+ custom hint is visible (currently within <see cref="TooltipShown"/>
+    /// and <see cref="TooltipClosed"/> events) and false otherwise
     /// </summary>
     [Browsable(false)]
     [ReadOnly(true)]
@@ -622,6 +664,8 @@ namespace BrokenEvent.Shared
 
     private void OnBalloonTipClicked()
     {
+      UpdateIcon();
+
       EventHandler eventHandler = (EventHandler)Events[EVENT_BALLOONTIPCLICKED];
       if (eventHandler == null)
         return;
@@ -647,7 +691,6 @@ namespace BrokenEvent.Shared
         hintWindow = new HintWindow(IntPtr.Zero, this);
 
       hintWindow.Show(customHintPosition = new Point(x, y));
-
     }
 
     private void OnToolTipClosed()
@@ -670,6 +713,8 @@ namespace BrokenEvent.Shared
 
     private void OnBalloonTipClosed()
     {
+      UpdateIcon();
+
       EventHandler eventHandler = (EventHandler)Events[EVENT_BALLOONTIPCLOSED];
       if (eventHandler == null)
         return;
@@ -908,12 +953,13 @@ namespace BrokenEvent.Shared
     /// <summary>
     /// This method should be called from the owner form's WndProc message.
     /// The simplest way to do this is
-    ///<code>protected override void WndProc(ref Message m)
+    /// <code>protected override void WndProc(ref Message m)
     ///{
-    ///  if (myTrayIcon.WndProc(ref m))
-    ///     return;
-    ///   base.WndProc(ref m);
-    ///}</code>
+    /// if (myTrayIcon.WndProc(ref m))
+    ///    return;
+    ///  base.WndProc(ref m);
+    ///}
+    /// </code>
     /// Yes, not the best solution. But it seems to be impossible to handle windows messages somehow different.
     /// </summary>
     /// <param name="msg">Message received</param>
@@ -1042,6 +1088,7 @@ namespace BrokenEvent.Shared
       data.szInfoTitle = caption;
       data.szInfo = text;
       data.uFlags = NotifyIconFlags.Info;
+
       if (realTime)
         data.uFlags |= NotifyIconFlags.RealTime;
       switch (balloonIcon)
@@ -1149,10 +1196,10 @@ namespace BrokenEvent.Shared
         return Cursor.Position;
 
       NOTIFYICONIDENTIFIER ident = new NOTIFYICONIDENTIFIER();
-      ident.cbSize = (uint)Marshal.SizeOf(typeof (NOTIFYICONIDENTIFIER));
+      ident.cbSize = (uint)Marshal.SizeOf(typeof(NOTIFYICONIDENTIFIER));
       ident.hWnd = ownerForm.Handle;
       ident.uID = (uint)id;
-      //ident.guidItem = guid; // don't know why, but setting GUID produces "The parameter is incorrect" HRESULT
+      // ident.guidItem = guid; // don't know why, but setting GUID produces "The parameter is incorrect" HRESULT
 
       WinAPI.RECT rect = new WinAPI.RECT();
       int result = Shell_NotifyIconGetRect(ref ident, ref rect);
@@ -1375,26 +1422,6 @@ namespace BrokenEvent.Shared
     }
   }
 
-#if SHARED_PUBLIC_API
-  public
-#else
-  internal
-#endif
-  class TooltipShowArgs: EventArgs
-  {
-    private Point position;
-
-    public TooltipShowArgs(Point position)
-    {
-      this.position = position;
-    }
-
-    public Point Position
-    {
-      get { return position; }
-    }
-  }
-
   internal enum NotifyIconParamMessages
   {
     NIN_SELECT = 0x0400,
@@ -1414,10 +1441,29 @@ namespace BrokenEvent.Shared
 #endif
   enum NotifyIconIcons
   {
+    /// <summary>
+    /// No icon
+    /// </summary>
     None,
+
+    /// <summary>
+    /// Information icon
+    /// </summary>
     Info,
+
+    /// <summary>
+    /// Warning icon
+    /// </summary>
     Warning,
+
+    /// <summary>
+    /// Error icon
+    /// </summary>
     Error,
+
+    /// <summary>
+    /// Application icon
+    /// </summary>
     User
   }
 }

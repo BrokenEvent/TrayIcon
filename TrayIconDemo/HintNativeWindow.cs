@@ -9,6 +9,7 @@ namespace BrokenEvent.Shared
   {
     #region P/Invoke and structs
 
+    // ReSharper disable UnusedField.Compiler
     private struct PAINTSTRUCT
     {
       public IntPtr hdc;
@@ -28,6 +29,7 @@ namespace BrokenEvent.Shared
       public int reserved7;
       public int reserved8;
     }
+    // ReSharper restore UnusedField.Compiler
 
     [DllImport("user32.dll", EntryPoint = "BeginPaint", CharSet = CharSet.Auto)]
     private static extern IntPtr BeginPaint(IntPtr hWnd, [In, Out] ref PAINTSTRUCT lpPaint);
@@ -47,14 +49,18 @@ namespace BrokenEvent.Shared
       User32.SetLayeredWindowAttributes(Handle, (uint)transparencyColor.ToArgb(), 0, LayeredWindowCommands.LWA_COLORKEY);
     }
 
-    private HintNativeWindow(IntPtr ownerHandle, WindowClassExFlags styles)
+    protected HintNativeWindow(IntPtr ownerHandle, WindowClassExFlags classFlags)
+      : this(ownerHandle, classFlags | WindowClassExFlags.WS_EX_NOACTIVATE | WindowClassExFlags.WS_EX_NOPARENTNOTIFY | WindowClassExFlags.WS_EX_TOOLWINDOW | WindowClassExFlags.WS_EX_TOPMOST, WindowClassStyles.CS_DROPSHADOW, WindowStyles.WS_POPUP | WindowStyles.WS_CHILD)
+    {
+    }
+
+    protected HintNativeWindow(IntPtr ownerHandle, WindowClassExFlags classFlags, WindowClassStyles classStyles, WindowStyles styles)
     {
       CreateParams cp = new CreateParams();
       cp.Parent = ownerHandle;
-      uint style = (uint)(WindowStyles.WS_DISABLED | WindowStyles.WS_POPUP);
-      cp.Style = (int)style;
-      cp.ClassStyle |= (int)WindowClassStyles.CS_DROPSHADOW;
-      cp.ExStyle = (int)(WindowClassExFlags.WS_EX_NOACTIVATE | WindowClassExFlags.WS_EX_NOPARENTNOTIFY | WindowClassExFlags.WS_EX_TOOLWINDOW | WindowClassExFlags.WS_EX_TOPMOST | styles);
+      cp.Style = (int)(WindowStyles.WS_DISABLED | styles);
+      cp.ClassStyle |= (int)classStyles;
+      cp.ExStyle = (int)classFlags;
 
       CreateHandle(cp);
     }
@@ -121,17 +127,23 @@ namespace BrokenEvent.Shared
       get { return transparencyColor; }
     }
 
+    protected virtual bool ShouldPaint
+    {
+      get { return true; }
+    }
+
     protected override void WndProc(ref Message m)
     {
       switch (m.Msg)
       {
         case (int)Msgs.WM_PAINT:
+          if (!ShouldPaint)
+            break;
+
           PAINTSTRUCT lpPaint = new PAINTSTRUCT();
-          Graphics graphics = Graphics.FromHdcInternal(BeginPaint(Handle, ref lpPaint));
+          using (Graphics graphics = Graphics.FromHdcInternal(BeginPaint(Handle, ref lpPaint)))
+            Paint(graphics, size);
 
-          Paint(graphics, size);
-
-          graphics.Dispose();
           EndPaint(Handle, ref lpPaint);
 
           break;

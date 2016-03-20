@@ -15,6 +15,9 @@ namespace BrokenEvent.TrayIconDemo
       // a simple way to get application icon. Well, buggy, it doesn't work when app is running from share
       Icon = myTrayIcon.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
 
+      myTrayIcon.OwnerForm = this;
+      customHint.OwnerForm = this;
+
       Array enumValues = Enum.GetValues(typeof (NotifyIconIcons));
       foreach (object enumValue in enumValues)
         cbNotificationIcon.Items.Add(enumValue);
